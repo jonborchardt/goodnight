@@ -1,12 +1,11 @@
 import assert from 'node:assert/strict'
-import type { GameState, HouseDef, LevelDef, TraitId, Vec2, DisturbanceType, WeatherId } from '../src/game/types'
+import type { GameState, HouseDef, LevelDef, TraitId, Vec2, WeatherId } from '../src/game/types'
 import { stageOf } from '../src/game/types'
 import { mulberry32 } from '../src/game/rng'
 import {
   createGameState, tick, setShhh, setWeather, toggleLight, toggleWindow, spawnDisturbance, spawnCar,
   SCENE_W, ROAD_Y, DISTURBANCE_SPECS,
 } from '../src/game/sim'
-import type { ScheduleEntry } from '../src/game/types'
 import { LEVELS } from '../src/game/levels/index'
 
 export function approx(actual: number, lo: number, hi: number, msg: string): void {
