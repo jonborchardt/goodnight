@@ -197,7 +197,7 @@ function fillRate(s: GameState): number {
   approx(fillRate(createGameState(lit(), 7)), 3.8, 4.2, 'needsLight + lit light nearby: ~4/s')
   const dark = createGameState(lit(), 7)
   toggleLight(dark, 'sl')
-  approx(fillRate(dark), 0.3, 0.7, 'needsLight in the dark: slow but still positive (recoverable)')
+  approx(fillRate(dark), -0.1, 0.1, 'needsLight in the dark: true stall (player-fixable)')
 }
 {
   const near = () => lvl({
@@ -217,7 +217,7 @@ function fillRate(s: GameState): number {
   approx(fillRate(createGameState(lvl({ houses: [house({ traits: ['freshAir'], windowStartsOpen: true })] }), 7)),
     3.8, 4.2, 'freshAir with open window: ~4/s')
   approx(fillRate(createGameState(lvl({ houses: [house({ traits: ['freshAir'] })] }), 7)),
-    1.3, 1.7, 'freshAir with closed window: ~1.5/s')
+    -0.1, 0.1, 'freshAir with closed window: true stall (player-fixable)')
 }
 {
   approx(fillRate(createGameState(lvl({ houses: [house({ traits: ['quietHouse'], windowStartsOpen: true })] }), 7)),

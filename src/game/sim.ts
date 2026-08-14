@@ -151,10 +151,10 @@ function litLightNear(s: GameState, p: Vec2): boolean {
 function traitRate(s: GameState, h: HouseState): number {
   let r = 0
   const t = h.def.traits
-  if (t.includes('needsLight')) r += litLightNear(s, h.def.pos) ? 1.5 : -2.0
+  if (t.includes('needsLight')) r += litLightNear(s, h.def.pos) ? 1.5 : -2.5
   if (t.includes('lovesDark')) r += litLightNear(s, h.def.pos) ? -2.5 : 1.0
   if (t.includes('rainSleeper') && s.weather === 'rain') r += 2.0
-  if (t.includes('freshAir')) r += h.windowOpen ? 1.5 : -1.0
+  if (t.includes('freshAir')) r += h.windowOpen ? 1.5 : -2.5
   if (t.includes('quietHouse') && h.windowOpen) r -= 1.5
   return r
 }
