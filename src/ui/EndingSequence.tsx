@@ -16,9 +16,10 @@ const TIMELINE: Array<{ at: number; phase: number }> = [
   { at: 15000, phase: 5 },
 ]
 
-// Upstairs window of the Last Lamp House (night10.ts: last-lamp at 900,590).
-// If that house moves, move this with it.
-const JOKE = { x: 892, y: 512, w: 16, h: 12 }
+// Left window of the Last Lamp House (cottage variant, anchored at 900,590:
+// body x [830,970], y [500,590]; windows at y [532,560]). One window clicks
+// back on — that's the joke. If the house moves, move this with it.
+const JOKE = { x: 854, y: 534, w: 24, h: 24 }
 
 const fade = (visible: boolean): CSSProperties => ({
   opacity: visible ? 1 : 0,
@@ -74,10 +75,10 @@ export default function EndingSequence({ onDone }: { onDone: () => void }) {
       </div>
       <div
         style={{
-          ...fade(phase >= 2),
           fontSize: 'clamp(1rem, 2.2vw, 1.4rem)',
           marginTop: '0.8em',
           opacity: phase >= 2 ? 0.85 : 0,
+          transition: 'opacity 1.2s ease',
         }}
       >
         Everyone is finally asleep.
