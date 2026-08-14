@@ -1,4 +1,4 @@
-import type { GameState, HouseState, LevelDef, Vec2, WeatherId } from './types'
+import type { GameState, HouseState, LevelDef, Vec2, WeatherId, Disturbance, DisturbanceType } from './types'
 import { mulberry32 } from './rng'
 
 export const SCENE_W = 1600
@@ -9,6 +9,26 @@ export const SHHH_RADIUS = 280
 // Tuning: quiet neutral house 0->100 in ~40s; satisfied prefs ~25s; shhh ~triples calm.
 export const BASE_RATE = 2.5
 export const CALM_BONUS = 5
+
+export const FALLOFF_D = 300
+export const THUNDER_FALLOFF_D = 900
+export const WINDOW_CLOSED_FACTOR = 0.4
+export const SHHH_SOURCE_FACTOR = 0.2
+export const MASK_RAIN = 6
+export const MASK_WIND = 3
+export const WAKE_THRESHOLD = 10
+export const WAKE_KNOCKDOWN = 60
+export const SEVERE_COOLDOWN = 4
+
+export const DISTURBANCE_SPECS: Record<DisturbanceType, { loudness: number; duration: number; severe: boolean }> = {
+  bark:    { loudness: 22, duration: 1.2, severe: true },
+  car:     { loudness: 26, duration: 9.2, severe: true }, // duration replaced by actual crossing time
+  owl:     { loudness: 12, duration: 1.0, severe: false },
+  cans:    { loudness: 28, duration: 1.5, severe: true },
+  gate:    { loudness: 14, duration: 1.5, severe: false },
+  thunder: { loudness: 40, duration: 2.0, severe: true },
+  tv:      { loudness: 10, duration: 4.0, severe: false },
+}
 
 export function createGameState(level: LevelDef, seed: number = Date.now() >>> 0): GameState {
   const rng = mulberry32(seed)
@@ -37,11 +57,69 @@ export function createGameState(level: LevelDef, seed: number = Date.now() >>> 0
   }
 }
 
+export function spawnDisturbance(s: GameState, type: DisturbanceType, pos: Vec2): Disturbance {
+  const spec = DISTURBANCE_SPECS[type]
+  const d: Disturbance = {
+    id: s.nextId++,
+    type,
+    pos: { x: pos.x, y: pos.y },
+    loudness: spec.loudness,
+    age: 0,
+    duration: spec.duration,
+    masked: false,
+  }
+  s.disturbances.push(d)
+  if (spec.severe) s.severeUntil = s.time + spec.duration + SEVERE_COOLDOWN
+  return d
+}
+
+function maskingFloor(s: GameState): number {
+  return s.weather === 'rain' ? MASK_RAIN : s.weather === 'wind' ? MASK_WIND : 0
+}
+
+function effectiveNoiseAt(s: GameState, h: HouseState): number {
+  let noise = 0
+  for (const d of s.disturbances) {
+    const scale = d.type === 'thunder' ? THUNDER_FALLOFF_D : FALLOFF_D
+    const r = dist(d.pos, h.def.pos) / scale
+    let v = d.loudness / (1 + r * r)
+    if (!h.windowOpen) v *= WINDOW_CLOSED_FACTOR
+    if (shhhCovers(s, d.pos)) v *= SHHH_SOURCE_FACTOR
+    noise += v
+  }
+  return Math.max(0, noise - maskingFloor(s))
+}
+
+function wakeThreshold(h: HouseState): number {
+  if (h.def.traits.includes('deepSleeper')) return WAKE_THRESHOLD * 2
+  if (h.def.traits.includes('lightSleeper')) return WAKE_THRESHOLD / 2
+  return WAKE_THRESHOLD
+}
+
+function stepDisturbances(s: GameState, dt: number): void {
+  const mask = maskingFloor(s)
+  for (const d of s.disturbances) {
+    d.age += dt
+    d.masked = shhhCovers(s, d.pos) || d.loudness * 0.5 <= mask
+  }
+  s.disturbances = s.disturbances.filter((d) => d.age < d.duration)
+}
+
 export function tick(s: GameState, dt: number): void {
   s.time += dt
   if (s.status === 'complete') return
+  stepDisturbances(s, dt)
   for (const h of s.houses) {
-    const rate = BASE_RATE + (shhhCovers(s, h.def.pos) ? CALM_BONUS : 0)
+    const eff = effectiveNoiseAt(s, h)
+    if (h.sleep >= 100) {
+      // hysteresis: an asleep house only wakes on a spike above its personal threshold
+      if (eff > wakeThreshold(h)) {
+        h.sleep = WAKE_KNOCKDOWN
+        h.wokeAt = s.time
+      }
+      continue
+    }
+    const rate = BASE_RATE + (shhhCovers(s, h.def.pos) ? CALM_BONUS : 0) - eff
     h.sleep = clamp(h.sleep + rate * dt, 0, 100)
   }
   stepStatus(s, dt)
