@@ -345,6 +345,35 @@ function spawnLog(level: LevelDef, seed: number, seconds: number, wet: boolean):
   }
 }
 
+console.log('== zen: the owl ==')
+{
+  const owlLvl = () => lvl({
+    houses: [house({ windowStartsOpen: true })], // at 800,500
+    owl: { perches: [{ x: 850, y: 420 }, { x: 200, y: 300 }, { x: 1400, y: 300 }], start: 0 },
+  })
+  const s = createGameState(owlLvl(), 7)
+  tick(s, 0.1)
+  approx(s.houses[0].rate, 0, 0.1, 'perched owl next door stalls the house (eff ~7.3 vs base 2.5)')
+  setShhh(s, { x: 850, y: 420 })
+  assert.ok(s.owl !== null && s.owl.perch !== 0, 'shhh covering the owl flushes it to a different perch')
+  assert.equal(s.owl!.movedAt, s.time, 'movedAt recorded for the view flight animation')
+  const perchAfter = s.owl!.perch
+  setShhh(s, { x: 852, y: 422 })
+  assert.equal(s.owl!.perch, perchAfter, 'continuous coverage does not re-flush')
+  setShhh(s, null)
+  runFor(s, 5)
+  assert.ok(s.houses[0].rate > 0.9, 'with the owl flushed to a far perch, the house drifts again')
+  const a = createGameState(owlLvl(), 11)
+  setShhh(a, { x: 850, y: 420 })
+  const b = createGameState(owlLvl(), 11)
+  setShhh(b, { x: 852, y: 421 })
+  assert.equal(a.owl!.perch, b.owl!.perch, 'flush destination is seed-deterministic')
+}
+{
+  const s = createGameState(lvl({ houses: [house({})] }), 7)
+  assert.equal(s.owl, null, 'levels without an owl have owl: null')
+}
+
 console.log('== task 7: completability and recovery for every level in LEVELS ==')
 assert.ok(LEVELS.length >= 1, 'LEVELS must contain at least one level')
 LEVELS.forEach((l, i) => assert.equal(l.night, i + 1, 'index 0 = night 1, in order'))
@@ -367,35 +396,46 @@ function applyEnv(s: GameState, combo: Combo): void {
   }
 }
 
-function botTick(s: GameState): void {
-  // shhh the loudest unmasked disturbance; otherwise sit on the sleepiest-lagging house
-  let target: Vec2 | null = null
-  let loudest = -Infinity
-  for (const d of s.disturbances) {
-    if (!d.masked && d.loudness > loudest) { loudest = d.loudness; target = d.pos }
-  }
-  if (target === null) {
-    let lowest = Infinity
-    for (const h of s.houses) {
-      if (h.sleep < 100 && h.sleep < lowest) { lowest = h.sleep; target = h.def.pos }
-    }
-  }
-  setShhh(s, target)
-}
-
 function runBot(level: LevelDef, combo: Combo, forceWake: boolean): GameState {
   const s = createGameState(level, 42)
   applyEnv(s, combo)
   const dt = 0.1
-  const limit = forceWake ? 720 : 360 // 6 simulated minutes (+6 for the recovery leg)
+  const limit = forceWake ? 720 : 360
   let forced = false
+  let lastFlush = -Infinity
+  const botTick = (): void => {
+    // gamble: flush the owl if it is parked near a not-yet-asleep house (cooldown 10s)
+    if (s.owl !== null && s.time - lastFlush > 10) {
+      const o = s.owl.pos
+      const bothered = s.houses.some(
+        (h) => h.sleep < 100 && Math.hypot(h.def.pos.x - o.x, h.def.pos.y - o.y) < 250,
+      )
+      if (bothered) {
+        setShhh(s, { x: o.x, y: o.y })
+        lastFlush = s.time
+        return
+      }
+    }
+    // shhh the loudest unmasked disturbance; otherwise sit on the sleepiest-lagging house
+    let target: Vec2 | null = null
+    let loudest = -Infinity
+    for (const d of s.disturbances) {
+      if (!d.masked && d.loudness > loudest) { loudest = d.loudness; target = d.pos }
+    }
+    if (target === null) {
+      let lowest = Infinity
+      for (const h of s.houses) {
+        if (h.sleep < 100 && h.sleep < lowest) { lowest = h.sleep; target = h.def.pos }
+      }
+    }
+    setShhh(s, target)
+  }
   for (let t = 0; t < limit && s.status !== 'complete'; t += dt) {
     if (forceWake && !forced && (t >= 45 || s.status === 'settling')) {
-      // knock the whole town awake mid-level; the sim must remain recoverable
       for (const h of s.houses) { h.sleep = Math.min(h.sleep, 20); h.wokeAt = null }
       forced = true
     }
-    botTick(s)
+    botTick()
     tick(s, dt)
   }
   return s

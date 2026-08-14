@@ -7,6 +7,7 @@ export const ROAD_Y = 700
 export const SHHH_RADIUS = 280
 export const LIGHT_RADIUS = 320
 export const CAR_SPEED = 240
+export const OWL_LOUDNESS = 8
 
 // Tuning: quiet neutral house 0->100 in ~40s; satisfied prefs ~25s; shhh ~triples calm.
 export const BASE_RATE = 2.5
@@ -109,6 +110,9 @@ export function createGameState(level: LevelDef, seed: number = Date.now() >>> 0
     lights: level.streetlights.map((def) => ({ def, on: def.startsOn })),
     disturbances: [],
     car: null,
+    owl: level.owl
+      ? { perch: level.owl.start, pos: { x: level.owl.perches[level.owl.start].x, y: level.owl.perches[level.owl.start].y }, movedAt: 0 }
+      : null,
     shhh: null,
     seed,
     rng,
@@ -163,6 +167,12 @@ function effectiveNoiseAt(s: GameState, h: HouseState): number {
     let v = d.loudness / (1 + r * r)
     if (!h.windowOpen) v *= WINDOW_CLOSED_FACTOR
     if (shhhCovers(s, d.pos)) v *= SHHH_SOURCE_FACTOR
+    noise += v
+  }
+  if (s.owl !== null) {
+    const r = dist(s.owl.pos, h.def.pos) / FALLOFF_D
+    let v = OWL_LOUDNESS / (1 + r * r)
+    if (!h.windowOpen) v *= WINDOW_CLOSED_FACTOR
     noise += v
   }
   let eff = Math.max(0, noise - maskingFloor(s))
@@ -231,7 +241,18 @@ function stepStatus(s: GameState, dt: number): void {
 
 export function setShhh(s: GameState, pos: Vec2 | null): void {
   if (s.status === 'complete') { s.shhh = null; return }
+  const wasCovering = s.owl !== null && shhhCovers(s, s.owl.pos)
   s.shhh = pos === null ? null : { pos: { x: pos.x, y: pos.y } }
+  if (s.owl !== null && !wasCovering && shhhCovers(s, s.owl.pos)) flushOwl(s)
+}
+
+// The gamble: a flushed owl picks a different authored perch at random.
+function flushOwl(s: GameState): void {
+  const def = s.level.owl
+  if (def === undefined || s.owl === null || def.perches.length < 2) return
+  let next = Math.floor(s.rng() * (def.perches.length - 1))
+  if (next >= s.owl.perch) next++
+  s.owl = { perch: next, pos: { x: def.perches[next].x, y: def.perches[next].y }, movedAt: s.time }
 }
 
 export function setWeather(s: GameState, w: WeatherId): void {

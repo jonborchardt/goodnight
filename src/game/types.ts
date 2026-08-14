@@ -36,6 +36,7 @@ export interface LevelDef {
   startWeather: WeatherId
   thunder: boolean
   dog?: { pos: Vec2 }
+  owl?: { perches: Vec2[]; start: number }
   houses: HouseDef[]
   streetlights: StreetlightDef[]
   schedule: ScheduleEntry[]
@@ -78,6 +79,7 @@ export interface GameState {
   lights: { def: StreetlightDef; on: boolean }[]
   disturbances: Disturbance[]
   car: { x: number; dir: 1 | -1 } | null
+  owl: { perch: number; pos: Vec2; movedAt: number } | null
   shhh: { pos: Vec2 } | null
   seed: number
   // --- internal sim fields (additive; the view only reads the fields above) ---
