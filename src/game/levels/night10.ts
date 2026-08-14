@@ -32,7 +32,7 @@ export const NIGHT10: LevelDef = {
     { id: 'last-lamp', label: 'Last Lamp House', pos: { x: 900, y: 590 }, color: '#e0e3d0', variant: 'cottage', traits: ['lovesDark', 'lightSleeper'], hasWindowControl: true, windowStartsOpen: true },
     { id: 'blue-tall', label: 'Tall Blue House', pos: { x: 1250, y: 560 }, color: '#5b7fa6', variant: 'tall', traits: ['rainSleeper', 'lovesDark'], hasWindowControl: false },
     // second row
-    { id: 'yellow-cottage', label: 'Yellow Cottage', pos: { x: 380, y: 460 }, color: '#e9c46a', variant: 'cottage', traits: ['lovesDark'], hasWindowControl: false },
+    { id: 'yellow-cottage', label: 'Yellow Cottage', pos: { x: 280, y: 455 }, color: '#e9c46a', variant: 'cottage', traits: ['lovesDark'], hasWindowControl: false },
     { id: 'willow-cottage', label: 'Willow Cottage', pos: { x: 800, y: 450 }, color: '#7fa66b', variant: 'cottage', traits: ['rainSleeper'], hasWindowControl: false },
     { id: 'farmhouse', label: 'Farmhouse', pos: { x: 1200, y: 460 }, color: '#ddc9a3', variant: 'farm', traits: ['freshAir'], hasWindowControl: true, windowStartsOpen: false },
     // third row
@@ -40,10 +40,10 @@ export const NIGHT10: LevelDef = {
     { id: 'gray-gable', label: 'Gray Gable', pos: { x: 1050, y: 340 }, color: '#8d99ae', variant: 'tall', traits: ['lightSleeper'], hasWindowControl: false },
   ],
   streetlights: [
-    { id: 'sl-red', pos: { x: 620, y: 655 }, startsOn: true },    // keep ON: red-tiny needsLight
-    { id: 'sl-lamp', pos: { x: 960, y: 645 }, startsOn: true },   // turn OFF: last-lamp quietHouse+lightSleeper
-    { id: 'sl-blue', pos: { x: 1310, y: 645 }, startsOn: true },  // turn OFF: blue-tall lovesDark
-    { id: 'sl-hill', pos: { x: 330, y: 520 }, startsOn: true },   // turn OFF: yellow-cottage lovesDark
+    { id: 'sl-red', pos: { x: 560, y: 655 }, startsOn: true },    // keep ON: red-tiny needsLight (45px; ≥344px from every lovesDark house)
+    { id: 'sl-lamp', pos: { x: 960, y: 645 }, startsOn: true },   // turn OFF: last-lamp lovesDark+lightSleeper (81px)
+    { id: 'sl-blue', pos: { x: 1310, y: 645 }, startsOn: true },  // turn OFF: blue-tall lovesDark (104px)
+    { id: 'sl-hill', pos: { x: 250, y: 500 }, startsOn: true },   // turn OFF: yellow-cottage lovesDark (54px; 329px from red-tiny — no cross-coverage)
   ],
   schedule: [
     { type: 'bark', minGap: 34, maxGap: 34, firstAt: 5 },
