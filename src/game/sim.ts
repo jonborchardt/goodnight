@@ -191,7 +191,7 @@ function stepDisturbances(s: GameState, dt: number): void {
   const mask = maskingFloor(s)
   for (const d of s.disturbances) {
     d.age += dt
-    d.masked = shhhCovers(s, d.pos) || d.loudness * 0.5 <= mask
+    d.masked = shhhCovers(s, d.pos) || d.loudness * WINDOW_CLOSED_FACTOR <= mask // rough "does weather swallow this" rendering hint
   }
   s.disturbances = s.disturbances.filter((d) => d.age < d.duration)
 }
