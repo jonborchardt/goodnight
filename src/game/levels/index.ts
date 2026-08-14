@@ -8,5 +8,6 @@ import { NIGHT6 } from './night6'
 import { NIGHT7 } from './night7'
 import { NIGHT8 } from './night8'
 import { NIGHT9 } from './night9'
+import { NIGHT10 } from './night10'
 
-export const LEVELS: LevelDef[] = [NIGHT1, NIGHT2, NIGHT3, NIGHT4, NIGHT5, NIGHT6, NIGHT7, NIGHT8, NIGHT9]
+export const LEVELS: LevelDef[] = [NIGHT1, NIGHT2, NIGHT3, NIGHT4, NIGHT5, NIGHT6, NIGHT7, NIGHT8, NIGHT9, NIGHT10]
