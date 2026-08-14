@@ -59,8 +59,11 @@ function Pane({ wr, fill, restless }: { wr: WindowRect; fill: string; restless?:
 
 // Open/closed reads from SHAPE, not color: open = raised sash (dark gap on
 // top, half pane below) + curtain flick; closed = full pane with muntin bar.
-function ControlWindow({ wr, open, fill, houseId, restless }: {
-  wr: WindowRect; open: boolean; fill: string; houseId: string; restless?: boolean
+// No tap-target rect here: it's rendered by TownScene in a top-most overlay
+// pass (see windowHitRect below) so it can never be occluded by a streetlight
+// or another house's body in this game's dense adjacency layouts.
+function ControlWindow({ wr, open, fill, restless }: {
+  wr: WindowRect; open: boolean; fill: string; restless?: boolean
 }) {
   return (
     <g>
@@ -82,17 +85,20 @@ function ControlWindow({ wr, open, fill, houseId, restless }: {
             stroke="#0d1320" strokeWidth={2} />
         </g>
       )}
-      {/* Oversized invisible tap target (68x68 >= 60 scene units) */}
-      <rect
-        data-toggle={`window:${houseId}`}
-        x={wr.x + wr.w / 2 - 34}
-        y={wr.y + wr.h / 2 - 34}
-        width={68}
-        height={68}
-        fill="transparent"
-      />
     </g>
   )
+}
+
+// World-space oversized tap target (68x68 >= 60 scene units) for a house's
+// control window, i.e. windows[0]. Used by TownScene to render the hit-rect
+// in a top-most overlay pass. Returns null for houses without window control.
+export function windowHitRect(def: HouseDef): WindowRect | null {
+  if (!def.hasWindowControl) return null
+  const art = VARIANTS[def.variant]
+  const wr = art.windows[0]
+  const originX = def.pos.x - art.w / 2
+  const originY = def.pos.y - art.h
+  return { x: originX + wr.x + wr.w / 2 - 34, y: originY + wr.y + wr.h / 2 - 34, w: 68, h: 68 }
 }
 
 function Zzz({ x, y }: { x: number; y: number }) {
@@ -180,7 +186,7 @@ export default function House({ hs, now }: { hs: HouseState; now: number }) {
       <rect x={art.w / 2 - 13} y={art.h - 34} width={26} height={34} rx={3} fill="#241d2b" />
       {art.windows.map((wr, i) =>
         def.hasWindowControl && i === 0 ? (
-          <ControlWindow key={i} wr={wr} open={hs.windowOpen} fill={windowFill(stage, i)} houseId={def.id} restless={restless} />
+          <ControlWindow key={i} wr={wr} open={hs.windowOpen} fill={windowFill(stage, i)} restless={restless} />
         ) : (
           <Pane key={i} wr={wr} fill={windowFill(stage, i)} restless={restless} />
         ),

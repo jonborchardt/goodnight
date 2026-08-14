@@ -6,7 +6,7 @@ import { ROAD_Y, SCENE_W } from '../game/sim'
 import Sky from './Sky'
 import Ground from './Ground'
 import Trees from './Trees'
-import House from './House'
+import House, { windowHitRect } from './House'
 import Owl from './Owl'
 import Streetlight from './Streetlight'
 import Dog from './Dog'
@@ -122,12 +122,23 @@ export default function TownScene({ state, controls }: { state: GameState; contr
         <Sky state={state} />
         <Ground />
         <Trees swaying={state.weather !== 'clear'} />
-        {state.lights.map((l) => (
-          <Streetlight key={l.def.id} def={l.def} on={l.on} />
-        ))}
         {[...state.houses].sort((a, b) => a.def.pos.y - b.def.pos.y).map((h) => (
           <House key={h.def.id} hs={h} now={state.time} />
         ))}
+        {/* Lights paint after houses so their oversized tap-rects (adjacency
+            puzzle: lights sit near multiple houses) are never occluded by a
+            house body rendered on top. */}
+        {state.lights.map((l) => (
+          <Streetlight key={l.def.id} def={l.def} on={l.on} />
+        ))}
+        {/* Window-control tap targets paint last of all: the smaller,
+            house-owned control must win any overlap with a streetlight's
+            much larger hit-rect (adjacency puzzle layouts put both close
+            together). See windowHitRect in House.tsx. */}
+        {state.houses.map((h) => {
+          const r = windowHitRect(h.def)
+          return r && <rect key={`wh-${h.def.id}`} data-toggle={`window:${h.def.id}`} x={r.x} y={r.y} width={r.w} height={r.h} fill="transparent" />
+        })}
         {state.owl && <Owl owl={state.owl} />}
         {state.level.dog && (
           <Dog
