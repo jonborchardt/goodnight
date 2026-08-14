@@ -5,6 +5,7 @@ import type { GameControls } from '../ui/useGameLoop'
 import Sky from './Sky'
 import Ground from './Ground'
 import Trees from './Trees'
+import House from './House'
 import RainLayer from './RainLayer'
 import './scene.css'
 
@@ -15,6 +16,9 @@ export default function TownScene({ state }: { state: GameState; controls: GameC
         <Sky state={state} />
         <Ground />
         <Trees swaying={state.weather !== 'clear'} />
+        {state.houses.map((h) => (
+          <House key={h.def.id} hs={h} now={state.time} />
+        ))}
         <RainLayer weather={state.weather} />
       </svg>
     </div>
