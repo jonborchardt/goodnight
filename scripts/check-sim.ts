@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import type { GameState, HouseDef, LevelDef, TraitId, Vec2, DisturbanceType } from '../src/game/types'
+import type { GameState, HouseDef, LevelDef, TraitId, Vec2, DisturbanceType, WeatherId } from '../src/game/types'
 import { stageOf } from '../src/game/types'
 import { mulberry32 } from '../src/game/rng'
 import {
@@ -7,6 +7,7 @@ import {
   SCENE_W, ROAD_Y, DISTURBANCE_SPECS,
 } from '../src/game/sim'
 import type { ScheduleEntry } from '../src/game/types'
+import { LEVELS } from '../src/game/levels/index'
 
 export function approx(actual: number, lo: number, hi: number, msg: string): void {
   assert.ok(actual >= lo && actual <= hi, `${msg}: got ${actual}, expected [${lo}, ${hi}]`)
@@ -334,6 +335,75 @@ function spawnLog(level: LevelDef, seed: number, seconds: number, wet: boolean):
     assert.ok(!s.disturbances.some((d) => d.type === 'thunder'),
       `no thunder in first 2s of night-10 settling (t=${s.time.toFixed(1)})`)
   }
+}
+
+console.log('== task 7: completability and recovery for every level in LEVELS ==')
+assert.ok(LEVELS.length >= 1, 'LEVELS must contain at least one level')
+LEVELS.forEach((l, i) => assert.equal(l.night, i + 1, 'index 0 = night 1, in order'))
+
+interface Combo { weather: WeatherId; lightsSmart: boolean }
+
+function applyEnv(s: GameState, combo: Combo): void {
+  setWeather(s, combo.weather)
+  for (const l of s.lights) {
+    // smart: light on iff a needsLight house is within its radius; otherwise all off
+    const wanted = combo.lightsSmart
+      && s.houses.some((h) => h.def.traits.includes('needsLight')
+        && Math.hypot(h.def.pos.x - l.def.pos.x, h.def.pos.y - l.def.pos.y) <= 320)
+    if (l.on !== wanted) toggleLight(s, l.def.id)
+  }
+  for (const h of s.houses) {
+    if (!h.def.hasWindowControl) continue
+    const wanted = h.def.traits.includes('freshAir') // open for fresh air, otherwise keep noise out
+    if (h.windowOpen !== wanted) toggleWindow(s, h.def.id)
+  }
+}
+
+function botTick(s: GameState): void {
+  // shhh the loudest unmasked disturbance; otherwise sit on the sleepiest-lagging house
+  let target: Vec2 | null = null
+  let loudest = -Infinity
+  for (const d of s.disturbances) {
+    if (!d.masked && d.loudness > loudest) { loudest = d.loudness; target = d.pos }
+  }
+  if (target === null) {
+    let lowest = Infinity
+    for (const h of s.houses) {
+      if (h.sleep < 100 && h.sleep < lowest) { lowest = h.sleep; target = h.def.pos }
+    }
+  }
+  setShhh(s, target)
+}
+
+function runBot(level: LevelDef, combo: Combo, forceWake: boolean): GameState {
+  const s = createGameState(level, 42)
+  applyEnv(s, combo)
+  const dt = 0.1
+  const limit = forceWake ? 720 : 360 // 6 simulated minutes (+6 for the recovery leg)
+  let forced = false
+  for (let t = 0; t < limit && s.status !== 'complete'; t += dt) {
+    if (forceWake && !forced && (t >= 45 || s.status === 'settling')) {
+      // knock the whole town awake mid-level; the sim must remain recoverable
+      for (const h of s.houses) { h.sleep = Math.min(h.sleep, 20); h.wokeAt = null }
+      forced = true
+    }
+    botTick(s)
+    tick(s, dt)
+  }
+  return s
+}
+
+for (const level of LEVELS) {
+  const combos: Combo[] = level.weatherOptions.flatMap((w) => [
+    { weather: w, lightsSmart: true },
+    { weather: w, lightsSmart: false },
+  ])
+  const winner = combos.find((c) => runBot(level, c, false).status === 'complete')
+  assert.ok(winner !== undefined, `night ${level.night} "${level.title}": no env combo completed within 6 sim-minutes`)
+  console.log(`night ${level.night} "${level.title}": complete (weather=${winner.weather}, lightsSmart=${winner.lightsSmart})`)
+  const rec = runBot(level, winner, true)
+  assert.equal(rec.status, 'complete', `night ${level.night}: town did not recover after a forced full wake`)
+  console.log(`night ${level.night}: recovered after forced full wake`)
 }
 
 console.log('check:sim OK')
