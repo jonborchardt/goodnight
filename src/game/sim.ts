@@ -104,6 +104,7 @@ export function createGameState(level: LevelDef, seed: number = Date.now() >>> 0
       sleep: 0,
       windowOpen: def.windowStartsOpen ?? false,
       wokeAt: null,
+      rate: 0,
     })),
     lights: level.streetlights.map((def) => ({ def, on: def.startsOn })),
     disturbances: [],
@@ -194,6 +195,7 @@ export function tick(s: GameState, dt: number): void {
   for (const h of s.houses) {
     const eff = effectiveNoiseAt(s, h)
     if (h.sleep >= 100) {
+      h.rate = 0
       // hysteresis: an asleep house only wakes on a spike above its personal threshold
       if (eff > wakeThreshold(h)) {
         h.sleep = WAKE_KNOCKDOWN
@@ -201,7 +203,9 @@ export function tick(s: GameState, dt: number): void {
       }
       continue
     }
-    const rate = BASE_RATE + traitRate(s, h) + (shhhCovers(s, h.def.pos) ? CALM_BONUS : 0) - eff
+    // zen redesign: awake houses stall, never drain
+    const rate = Math.max(0, BASE_RATE + traitRate(s, h) + (shhhCovers(s, h.def.pos) ? CALM_BONUS : 0) - eff)
+    h.rate = rate
     h.sleep = clamp(h.sleep + rate * dt, 0, 100)
   }
   stepStatus(s, dt)

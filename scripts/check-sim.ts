@@ -110,24 +110,29 @@ console.log('== task 2: sleep core, settling, mutators ==')
 
 console.log('== task 3: noise pipeline and hysteresis ==')
 {
-  // one bark within earshot reverses progress (bark 22 at 150px: eff 17.6 >> base 2.5)
+  // zen stall floor: a bark overwhelms the fill rate but never drains sleep
   const s = createGameState(lvl({ houses: [house({ windowStartsOpen: true })] }), 7)
   runFor(s, 20)
   const before = s.houses[0].sleep
   spawnDisturbance(s, 'bark', { x: 950, y: 500 })
+  tick(s, 0.1)
+  assert.equal(s.houses[0].rate, 0, 'bark eff 17.6 >> base 2.5 -> rate clamps to 0')
+  runFor(s, 1.1)
+  approx(s.houses[0].sleep, before, before + 0.3, 'zen: noise stalls, never drains an awake house')
   runFor(s, 1)
-  assert.ok(s.houses[0].sleep < before, 'a bark reverses sleep progress')
+  approx(s.houses[0].rate, 2.4, 2.6, 'rate recovers after the bark and is exposed for the view')
 }
 {
-  // closed window attenuates 0.4x
+  // window lever under the stall floor: distant tv stalls an open-window house; closed keeps drifting
   const open = createGameState(lvl({ houses: [house({ windowStartsOpen: true })] }), 7)
   const closed = createGameState(lvl({ houses: [house({})] }), 7)
   for (const s of [open, closed]) {
     runFor(s, 10)
-    spawnDisturbance(s, 'bark', { x: 950, y: 500 })
-    runFor(s, 1.2)
+    spawnDisturbance(s, 'tv', { x: 1100, y: 500 }) // 300px, loudness 10 -> eff 5 open / 2 closed
+    tick(s, 0.1)
   }
-  assert.ok(closed.houses[0].sleep > open.houses[0].sleep, 'closed window blocks more noise')
+  assert.equal(open.houses[0].rate, 0, 'open window: tv stalls (5 > 2.5)')
+  approx(closed.houses[0].rate, 0.4, 0.6, 'closed window: attenuated tv still lets sleep drift')
 }
 {
   // rain masking floor fully absorbs a distant owl (12 at 300px = 6 <= MASK_RAIN 6)
@@ -217,16 +222,16 @@ function fillRate(s: GameState): number {
 {
   approx(fillRate(createGameState(lvl({ houses: [house({ traits: ['quietHouse'], windowStartsOpen: true })] }), 7)),
     0.8, 1.2, 'quietHouse with open window: ~1/s')
-  // quietHouse noise sensitivity: eff x1.5 makes a masked-for-others noise still sting
-  const s = createGameState(lvl({ houses: [house({ traits: ['quietHouse'] })] }), 7)
-  runFor(s, 10)
+  // quietHouse sensitivity under the stall floor: the same distant tv stalls only the quietHouse
+  const q = createGameState(lvl({ houses: [house({ traits: ['quietHouse'] })] }), 7)
   const plain = createGameState(lvl({ houses: [house({})] }), 7)
-  runFor(plain, 10)
-  spawnDisturbance(s, 'bark', { x: 950, y: 500 })
-  spawnDisturbance(plain, 'bark', { x: 950, y: 500 })
-  runFor(s, 1.2)
-  runFor(plain, 1.2)
-  assert.ok(s.houses[0].sleep < plain.houses[0].sleep, 'quietHouse suffers more from the same bark')
+  for (const s of [q, plain]) {
+    runFor(s, 10)
+    spawnDisturbance(s, 'tv', { x: 1100, y: 500 })
+    tick(s, 0.1)
+  }
+  assert.equal(q.houses[0].rate, 0, 'quietHouse: x1.5 noise turns the distant tv into a stall')
+  approx(plain.houses[0].rate, 0.4, 0.6, 'plain house drifts through the same tv')
 }
 {
   // stormWorrier: distant thunder wakes them; deepSleeper behind a closed window sleeps through
@@ -260,7 +265,11 @@ console.log('== task 5: the car ==')
   const d = s.disturbances.find((d) => d.type === 'car')
   assert.ok(d !== undefined && d.pos.y === ROAD_Y, 'car noise source travels on the road')
   runFor(s, 4.6) // 2000px at 240px/s: mid-town around t+4.2s
-  assert.ok(s.houses[0].sleep < nearBefore, 'roadside house loses sleep as the car passes')
+  assert.ok(s.houses[0].sleep >= nearBefore, 'zen: the passing car stalls, never drains')
+  assert.ok(
+    s.houses[0].sleep - nearBefore < (s.houses[1].sleep - farBefore) / 2,
+    'roadside house gains far less than the distant house during the crossing',
+  )
   const mid = s.disturbances.find((d) => d.type === 'car')
   assert.ok(mid !== undefined && Math.abs(mid.pos.x - s.car!.x) < 1, 'noise source follows the car')
   runFor(s, 5)

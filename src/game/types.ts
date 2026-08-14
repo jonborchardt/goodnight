@@ -56,6 +56,7 @@ export interface HouseState {
   sleep: number
   windowOpen: boolean
   wokeAt: number | null
+  rate: number
 }
 
 export type Stage = 'awake' | 'drowsy' | 'nearly' | 'asleep'
