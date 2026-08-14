@@ -4,8 +4,9 @@ import { stageOf } from '../src/game/types'
 import { mulberry32 } from '../src/game/rng'
 import {
   createGameState, tick, setShhh, setWeather, toggleLight, toggleWindow, spawnDisturbance, spawnCar,
-  SCENE_W, ROAD_Y,
+  SCENE_W, ROAD_Y, DISTURBANCE_SPECS,
 } from '../src/game/sim'
+import type { ScheduleEntry } from '../src/game/types'
 
 export function approx(actual: number, lo: number, hi: number, msg: string): void {
   assert.ok(actual >= lo && actual <= hi, `${msg}: got ${actual}, expected [${lo}, ${hi}]`)
@@ -266,6 +267,73 @@ console.log('== task 5: the car ==')
   assert.equal(s.car, null, 'car despawns after crossing')
   assert.ok(!s.disturbances.some((d) => d.type === 'car'), 'car noise removed with it')
   assert.ok(s.houses[1].sleep > farBefore + 5, 'distant house keeps making progress through the whole crossing')
+}
+
+console.log('== task 6: scheduler, dog, thunder ==')
+const busy = () => lvl({
+  thunder: true,
+  dog: { pos: { x: 1150, y: 620 } },
+  houses: [house({})],
+  schedule: [
+    { type: 'bark', minGap: 8, maxGap: 12, firstAt: 2 }, // no pos: barks at the dog
+    { type: 'cans', pos: { x: 400, y: 400 }, minGap: 9, maxGap: 14, firstAt: 3 },
+    { type: 'thunder', minGap: 20, maxGap: 30, firstAt: 5 },
+    { type: 'car', minGap: 25, maxGap: 35, firstAt: 10 },
+  ],
+})
+function spawnLog(level: LevelDef, seed: number, seconds: number, wet: boolean): string[] {
+  const s = createGameState(level, seed)
+  if (wet) setWeather(s, 'rain')
+  const log: string[] = []
+  let seen = 0
+  for (let t = 0; t < seconds; t += 0.1) {
+    tick(s, 0.1)
+    for (const d of s.disturbances) {
+      if (d.id > seen) { seen = d.id; log.push(`${d.type}@${s.time.toFixed(1)}`) }
+    }
+    const severe = s.disturbances.filter((d) => DISTURBANCE_SPECS[d.type].severe)
+    assert.ok(severe.length <= 1,
+      `severe disturbances overlap at t=${s.time.toFixed(1)}: ${severe.map((d) => d.type).join(',')}`)
+  }
+  return log
+}
+{
+  const a = spawnLog(busy(), 11, 180, true)
+  const b = spawnLog(busy(), 11, 180, true)
+  assert.deepEqual(a, b, 'same seed -> identical disturbance timeline')
+  const c = spawnLog(busy(), 12, 180, true)
+  assert.notDeepEqual(a, c, 'different seed -> different timeline')
+  assert.ok(a.some((e) => e.startsWith('bark@')), 'dog barks on schedule')
+  assert.ok(a.some((e) => e.startsWith('car@')), 'cars spawn on schedule')
+  assert.ok(a.some((e) => e.startsWith('thunder@')), 'thunder fires during rain')
+  const thunders = a.filter((e) => e.startsWith('thunder@')).map((e) => Number(e.split('@')[1]))
+  for (let i = 1; i < thunders.length; i++) {
+    assert.ok(thunders[i] - thunders[i - 1] >= 20, `thunder cooldown >= 20s (${thunders[i - 1]} -> ${thunders[i]})`)
+  }
+}
+{
+  const dry = spawnLog(busy(), 11, 180, false) // weather stays 'clear'
+  assert.ok(!dry.some((e) => e.startsWith('thunder@')), 'no thunder without rain')
+}
+{
+  const s = createGameState(busy(), 11)
+  runFor(s, 2.5)
+  const bark = s.disturbances.find((d) => d.type === 'bark')
+  assert.ok(bark !== undefined && bark.pos.x === 1150 && bark.pos.y === 620, 'posless bark spawns at the dog')
+}
+{
+  // night 10: no thunder during the first 2s of settling (brief: no unfair disasters)
+  const finale: LevelDef = { ...busy(), night: 10, schedule: [{ type: 'thunder', minGap: 1, maxGap: 1, firstAt: 0.2 }] }
+  const s = createGameState(finale, 11)
+  setWeather(s, 'rain')
+  s.houses[0].sleep = 100
+  tick(s, 0.1)
+  assert.equal(s.status, 'settling')
+  for (let i = 0; i < 18; i++) { // settleProgress stays < 2
+    tick(s, 0.1)
+    assert.ok(!s.disturbances.some((d) => d.type === 'thunder'),
+      `no thunder in first 2s of night-10 settling (t=${s.time.toFixed(1)})`)
+  }
 }
 
 console.log('check:sim OK')

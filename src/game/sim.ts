@@ -1,4 +1,4 @@
-import type { GameState, HouseState, LevelDef, Vec2, WeatherId, Disturbance, DisturbanceType } from './types'
+import type { GameState, HouseState, LevelDef, Vec2, WeatherId, Disturbance, DisturbanceType, ScheduleEntry } from './types'
 import { mulberry32 } from './rng'
 
 export const SCENE_W = 1600
@@ -30,6 +30,43 @@ export const DISTURBANCE_SPECS: Record<DisturbanceType, { loudness: number; dura
   gate:    { loudness: 14, duration: 1.5, severe: false },
   thunder: { loudness: 40, duration: 2.0, severe: true },
   tv:      { loudness: 10, duration: 4.0, severe: false },
+}
+
+export const THUNDER_MIN_GAP = 20
+const RETRY_DELAY = 1 // blocked entries are delayed, never dropped
+
+function stepScheduler(s: GameState): void {
+  for (let i = 0; i < s.level.schedule.length; i++) {
+    const e = s.level.schedule[i]
+    if (s.time < s.nextAt[i]) continue
+    if (e.type === 'car') {
+      if (s.car !== null || s.time < s.severeUntil) { s.nextAt[i] = s.time + RETRY_DELAY; continue }
+      spawnCar(s)
+    } else if (e.type === 'thunder') {
+      if (!canThunder(s)) { s.nextAt[i] = s.time + RETRY_DELAY; continue }
+      spawnDisturbance(s, 'thunder', { x: SCENE_W / 2, y: 100 })
+      s.lastThunderAt = s.time
+    } else {
+      if (DISTURBANCE_SPECS[e.type].severe && s.time < s.severeUntil) { s.nextAt[i] = s.time + RETRY_DELAY; continue }
+      spawnDisturbance(s, e.type, schedulePos(s, e))
+    }
+    s.nextAt[i] = s.time + e.minGap + s.rng() * (e.maxGap - e.minGap)
+  }
+}
+
+function canThunder(s: GameState): boolean {
+  if (s.weather !== 'rain' || !s.level.thunder) return false
+  if (s.time < s.severeUntil) return false
+  if (s.time - s.lastThunderAt < THUNDER_MIN_GAP) return false
+  // brief: no unfair disasters at the finale's finish line
+  if (s.level.night === 10 && s.status === 'settling' && s.settleProgress < 2) return false
+  return true
+}
+
+function schedulePos(s: GameState, e: ScheduleEntry): Vec2 {
+  if (e.pos !== undefined) return e.pos
+  if (e.type === 'bark' && s.level.dog !== undefined) return s.level.dog.pos
+  return { x: 100 + s.rng() * (SCENE_W - 200), y: 150 + s.rng() * 400 }
 }
 
 const CAR_MARGIN = 200 // spawn distance past the scene edge => ~0.8s audible/visible approach
@@ -151,6 +188,7 @@ function stepDisturbances(s: GameState, dt: number): void {
 export function tick(s: GameState, dt: number): void {
   s.time += dt
   if (s.status === 'complete') return
+  stepScheduler(s)
   stepCar(s, dt)
   stepDisturbances(s, dt)
   for (const h of s.houses) {
