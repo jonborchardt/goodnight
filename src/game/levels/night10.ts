@@ -19,7 +19,7 @@ export const NIGHT10: LevelDef = {
       { x: 950, y: 520 },   // 0: start — right beside the Last Lamp House
       { x: 420, y: 640 },   // 1: near the road west
       { x: 700, y: 300 },   // 2: third-row tree — mildly bad (near chimney)
-      { x: 90, y: 280 },    // 3: far west — safe
+      { x: 90, y: 240 },    // 3: far west — safe (308px from yellow-cottage: a shhh there never flushes it)
       { x: 1540, y: 250 },  // 4: far east — safe
       { x: 1300, y: 420 },  // 5: second row east — mildly bad
     ],
@@ -41,7 +41,7 @@ export const NIGHT10: LevelDef = {
   ],
   streetlights: [
     { id: 'sl-red', pos: { x: 560, y: 655 }, startsOn: true },    // keep ON: red-tiny needsLight (45px; ≥344px from every lovesDark house)
-    { id: 'sl-lamp', pos: { x: 960, y: 645 }, startsOn: true },   // turn OFF: last-lamp lovesDark+lightSleeper (81px)
+    { id: 'sl-lamp', pos: { x: 930, y: 650 }, startsOn: true },   // turn OFF: last-lamp lovesDark+lightSleeper (67px; 332px from blue-tall — single coverage)
     { id: 'sl-blue', pos: { x: 1310, y: 645 }, startsOn: true },  // turn OFF: blue-tall lovesDark (104px)
     { id: 'sl-hill', pos: { x: 250, y: 500 }, startsOn: true },   // turn OFF: yellow-cottage lovesDark (54px; 329px from red-tiny — no cross-coverage)
   ],

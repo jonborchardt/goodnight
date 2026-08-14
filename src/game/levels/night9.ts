@@ -36,7 +36,7 @@ export const NIGHT9: LevelDef = {
   streetlights: [
     { id: 'sl-red', pos: { x: 780, y: 655 }, startsOn: true },   // keep ON: red-tiny needsLight
     { id: 'sl-blue', pos: { x: 1210, y: 645 }, startsOn: true }, // turn OFF: blue-tall lovesDark
-    { id: 'sl-hill', pos: { x: 430, y: 520 }, startsOn: true },  // turn OFF: yellow-cottage lovesDark
+    { id: 'sl-hill', pos: { x: 400, y: 520 }, startsOn: true },  // turn OFF: yellow-cottage lovesDark (100px; 331px from red-tiny — no cross-coverage)
   ],
   schedule: [
     { type: 'car', minGap: 30, maxGap: 30, firstAt: 16 },

@@ -1,11 +1,12 @@
 import type { LevelDef } from '../types'
 
 // Night 7 — Storm. thunder: true + a deterministic thunder entry (24s while
-// raining). Rain masks the 16s hill gate entirely and speeds the two
-// rainSleepers, but thunder always re-wakes the stormWorriers (red-tiny,
-// willow-cottage) by +15, unconditionally — windows can't stop it, only
-// recovery between rumbles. Clear skies are slower to settle but spare the
-// worriers the jolt entirely. Both paths are solvable.
+// raining). Rain swallows the 16s gate for closed windows and blunts it
+// elsewhere, and speeds the two rainSleepers, but thunder always re-wakes
+// the stormWorriers (red-tiny, willow-cottage) by +15, unconditionally —
+// windows can't stop it, only recovery between rumbles. Clear skies are
+// slower to settle but spare the worriers the jolt entirely. Both paths
+// are solvable.
 export const NIGHT7: LevelDef = {
   night: 7,
   title: 'Storm',
