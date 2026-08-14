@@ -1,5 +1,7 @@
 # Build: Goodnight, Little Town
 
+> **⚠️ PARTIALLY SUPERSEDED (2026-08-13):** a mid-build user redirect replaced the action-leaning parts of this design. [2026-08-13-zen-redesign.md](2026-08-13-zen-redesign.md) is now the top authority: discovery-based play (no readable answer key), stall-never-drain, telegraphed-only deterministic events, the owl gamble actor, grid-of-houses layouts, and a revised night arc. Where this brief conflicts with the addendum, the addendum wins.
+
 I want you to design and implement a complete small game called **Goodnight, Little Town**.
 
 I will provide the technical constraints, framework, repository details, and implementation requirements separately. This prompt defines the **game itself**, especially the player experience, core mechanics, level progression, pacing, feedback, and definition of done.

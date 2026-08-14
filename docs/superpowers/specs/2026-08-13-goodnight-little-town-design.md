@@ -1,8 +1,8 @@
 # Goodnight, Little Town — Design Spec
 
 Date: 2026-08-13
-Status: approved
-Product brief: [2026-08-13-goodnight-little-town-product-brief.md](2026-08-13-goodnight-little-town-product-brief.md) — the authoritative game design. This spec covers the technical design and condenses the brief's requirements for implementation. Where they conflict, the brief wins.
+Status: approved — **PARTIALLY SUPERSEDED by [2026-08-13-zen-redesign.md](2026-08-13-zen-redesign.md)** (user redirect mid-build). The redesign addendum wins over both this spec and the brief wherever it speaks: discovery-based play, stall-never-drain, telegraphed-only events, the owl actor, grid layouts, and the revised night arc. Sections below not touched by the addendum remain in force.
+Product brief: [2026-08-13-goodnight-little-town-product-brief.md](2026-08-13-goodnight-little-town-product-brief.md) — the original game design. Precedence: zen redesign addendum > this spec > brief.
 
 ## Summary
 
