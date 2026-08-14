@@ -58,3 +58,30 @@
   to { stroke-width: 5; }
 }
 .shhh-edge { animation: shhh-breathe 1.6s ease-in-out infinite alternate; }
+
+/* Zen: reactive body language */
+@keyframes restless {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+.pane.restless { animation: restless 1.1s ease-in-out infinite; }
+@keyframes content-pulse {
+  0% { opacity: 0.5; }
+  100% { opacity: 0; }
+}
+.content-pulse { animation: content-pulse 1.4s ease-out forwards; }
+
+/* Owl */
+.owl-body { transition: transform 1.6s cubic-bezier(0.4, 0, 0.2, 1); }
+@keyframes owl-ripple-anim {
+  from { r: 8; opacity: 0.3; }
+  to { r: 56; opacity: 0; }
+}
+.owl-ripple { animation: owl-ripple-anim 2.6s linear infinite; }
+
+/* Telegraphs: a soft breath before a scheduled event */
+@keyframes telegraph-pulse {
+  from { opacity: 0.1; }
+  to { opacity: 0.38; }
+}
+.telegraph { animation: telegraph-pulse 0.7s ease-in-out infinite alternate; }

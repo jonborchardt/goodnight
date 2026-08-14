@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { stageOf } from '../game/types'
 import type { HouseDef, HouseState, Stage } from '../game/types'
 
@@ -45,10 +46,10 @@ function windowFill(stage: Stage, i: number): string {
   return '#141a28'
 }
 
-function Pane({ wr, fill }: { wr: WindowRect; fill: string }) {
+function Pane({ wr, fill, restless }: { wr: WindowRect; fill: string; restless?: boolean }) {
   return (
     <g>
-      <rect className="pane" x={wr.x} y={wr.y} width={wr.w} height={wr.h} rx={2}
+      <rect className={`pane${restless ? ' restless' : ''}`} x={wr.x} y={wr.y} width={wr.w} height={wr.h} rx={2}
         fill={fill} stroke="#0d1320" strokeWidth={2} />
       <line x1={wr.x + wr.w / 2} y1={wr.y} x2={wr.x + wr.w / 2} y2={wr.y + wr.h}
         stroke="#0d1320" strokeWidth={2} />
@@ -58,8 +59,8 @@ function Pane({ wr, fill }: { wr: WindowRect; fill: string }) {
 
 // Open/closed reads from SHAPE, not color: open = raised sash (dark gap on
 // top, half pane below) + curtain flick; closed = full pane with muntin bar.
-function ControlWindow({ wr, open, fill, houseId }: {
-  wr: WindowRect; open: boolean; fill: string; houseId: string
+function ControlWindow({ wr, open, fill, houseId, restless }: {
+  wr: WindowRect; open: boolean; fill: string; houseId: string; restless?: boolean
 }) {
   return (
     <g>
@@ -68,14 +69,14 @@ function ControlWindow({ wr, open, fill, houseId }: {
       {open ? (
         <g>
           <rect x={wr.x} y={wr.y} width={wr.w} height={wr.h / 2} fill="#0a0f1a" />
-          <rect className="pane" x={wr.x} y={wr.y + wr.h / 2} width={wr.w} height={wr.h / 2}
+          <rect className={`pane${restless ? ' restless' : ''}`} x={wr.x} y={wr.y + wr.h / 2} width={wr.w} height={wr.h / 2}
             fill={fill} stroke="#0d1320" strokeWidth={2} />
           <path d={`M ${wr.x} ${wr.y} q 6 10 0 ${wr.h / 2}`}
             stroke="#e8e2d0" strokeWidth={2.5} fill="none" />
         </g>
       ) : (
         <g>
-          <rect className="pane" x={wr.x} y={wr.y} width={wr.w} height={wr.h}
+          <rect className={`pane${restless ? ' restless' : ''}`} x={wr.x} y={wr.y} width={wr.w} height={wr.h}
             fill={fill} stroke="#0d1320" strokeWidth={2} />
           <line x1={wr.x} y1={wr.y + wr.h / 2} x2={wr.x + wr.w} y2={wr.y + wr.h / 2}
             stroke="#0d1320" strokeWidth={2} />
@@ -139,6 +140,22 @@ export default function House({ hs, now }: { hs: HouseState; now: number }) {
   const stage = stageOf(hs.sleep)
   const justWoke = hs.wokeAt !== null && now - hs.wokeAt < 1.6
 
+  // Zen reactive body language: stalled >= 2s -> restless panes; rate recovering
+  // from a stall (a toggle helped) -> one-shot content pulse.
+  const stalledSince = useRef<number | null>(null)
+  if (hs.sleep < 100 && hs.rate < 0.1) {
+    if (stalledSince.current === null) stalledSince.current = now
+  } else {
+    stalledSince.current = null
+  }
+  const restless = stalledSince.current !== null && now - stalledSince.current >= 2
+  const prevRate = useRef(hs.rate)
+  const [pulseKey, setPulseKey] = useState(0)
+  useEffect(() => {
+    if (prevRate.current < 0.1 && hs.rate > 0.5 && hs.sleep < 100) setPulseKey((k) => k + 1)
+    prevRate.current = hs.rate
+  })
+
   return (
     <g transform={`translate(${def.pos.x - art.w / 2} ${def.pos.y - art.h})`}>
       {def.variant === 'chimney' && (
@@ -152,12 +169,25 @@ export default function House({ hs, now }: { hs: HouseState; now: number }) {
       <rect x={art.w / 2 - 13} y={art.h - 34} width={26} height={34} rx={3} fill="#241d2b" />
       {art.windows.map((wr, i) =>
         def.hasWindowControl && i === 0 ? (
-          <ControlWindow key={i} wr={wr} open={hs.windowOpen} fill={windowFill(stage, i)} houseId={def.id} />
+          <ControlWindow key={i} wr={wr} open={hs.windowOpen} fill={windowFill(stage, i)} houseId={def.id} restless={restless} />
         ) : (
-          <Pane key={i} wr={wr} fill={windowFill(stage, i)} />
+          <Pane key={i} wr={wr} fill={windowFill(stage, i)} restless={restless} />
         ),
       )}
       {stage === 'asleep' && <Zzz x={art.w / 2 + 10} y={-54} />}
+      {pulseKey > 0 && (
+        <rect
+          key={pulseKey}
+          className="content-pulse"
+          x={-6}
+          y={-52}
+          width={art.w + 12}
+          height={art.h + 56}
+          rx={8}
+          fill="#bcd0ff"
+          pointerEvents="none"
+        />
+      )}
       {justWoke && (
         <rect
           key={hs.wokeAt}

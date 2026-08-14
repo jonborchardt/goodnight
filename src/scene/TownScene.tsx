@@ -2,10 +2,12 @@ import { useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import type { GameState, Vec2 } from '../game/types'
 import type { GameControls } from '../ui/useGameLoop'
+import { ROAD_Y, SCENE_W } from '../game/sim'
 import Sky from './Sky'
 import Ground from './Ground'
 import Trees from './Trees'
 import House from './House'
+import Owl from './Owl'
 import Streetlight from './Streetlight'
 import Dog from './Dog'
 import Car from './Car'
@@ -119,9 +121,10 @@ export default function TownScene({ state, controls }: { state: GameState; contr
         {state.lights.map((l) => (
           <Streetlight key={l.def.id} def={l.def} on={l.on} />
         ))}
-        {state.houses.map((h) => (
+        {[...state.houses].sort((a, b) => a.def.pos.y - b.def.pos.y).map((h) => (
           <House key={h.def.id} hs={h} now={state.time} />
         ))}
+        {state.owl && <Owl owl={state.owl} />}
         {state.level.dog && (
           <Dog
             pos={state.level.dog.pos}
@@ -133,6 +136,27 @@ export default function TownScene({ state, controls }: { state: GameState; contr
           <Ripple key={d.id} d={d} />
         ))}
         {state.shhh && <ShhhCircle pos={state.shhh.pos} />}
+        {/* Telegraphs: soft cues ~2s before a scheduled event fires */}
+        {state.level.schedule.map((e, i) => {
+          const eta = state.nextAt[i] - state.time
+          if (eta <= 0 || eta > 2) return null
+          // Blocked thunder retries every 1s under clear skies — only telegraph it when it can actually fire.
+          if (e.type === 'thunder' && state.weather !== 'rain') return null
+          if (e.type === 'car') {
+            if (state.car) return null
+            return (
+              <g key={`tg-${i}`} pointerEvents="none">
+                <rect className="telegraph" x={0} y={ROAD_Y - 26} width={26} height={52} fill="#ffe9a8" />
+                <rect className="telegraph" x={SCENE_W - 26} y={ROAD_Y - 26} width={26} height={52} fill="#ffe9a8" />
+              </g>
+            )
+          }
+          const pos = e.pos ?? (e.type === 'bark' ? state.level.dog?.pos : undefined) ?? (e.type === 'thunder' ? { x: SCENE_W / 2, y: 100 } : undefined)
+          if (!pos) return null
+          return (
+            <circle key={`tg-${i}`} className="telegraph" cx={pos.x} cy={pos.y} r={26} fill="none" stroke="#cfd9f2" strokeWidth={2} pointerEvents="none" />
+          )
+        })}
         <RainLayer weather={state.weather} />
         {/* Brief thunder flash so storms read even when muted */}
         {state.disturbances.some((d) => d.type === 'thunder' && d.age < 0.35) && (
