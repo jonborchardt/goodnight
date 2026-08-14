@@ -66,7 +66,10 @@ export function initAudio(): void {
   master.connect(ctx.destination);
   buildAmbience();
   if (import.meta.env.DEV) {
-    (window as any).__audio = { ctx, master, nightGain, rainGain, windGain, ambienceFilter };
+    (window as any).__audio = {
+      ctx, master, nightGain, rainGain, windGain, ambienceFilter,
+      playEvent, playSleepChime, playGoodnight, updateAmbience,
+    };
   }
 }
 
@@ -156,4 +159,147 @@ export function updateAmbience(s: AmbienceSnapshot): void {
   windGain.gain.setTargetAtTime((s.weather === 'wind' ? 0.09 : 0) * duck, t, 0.5);
   // Shhh muffles the world: gentle low-pass while held.
   ambienceFilter.frequency.setTargetAtTime(s.shhhActive ? 700 : 18000, t, 0.15);
+}
+
+// One sine/saw tone with an attack/decay envelope, optional frequency glide.
+function tone(opts: {
+  type: OscillatorType; freq: number; freqEnd?: number;
+  at: number; attack: number; decay: number; peak: number;
+  filter?: { type: BiquadFilterType; freq: number; q: number };
+}): void {
+  const c = ctx!;
+  const osc = c.createOscillator();
+  osc.type = opts.type;
+  osc.frequency.setValueAtTime(opts.freq, opts.at);
+  if (opts.freqEnd !== undefined) {
+    osc.frequency.linearRampToValueAtTime(opts.freqEnd, opts.at + opts.attack + opts.decay);
+  }
+  const g = c.createGain();
+  g.gain.setValueAtTime(0, opts.at);
+  g.gain.linearRampToValueAtTime(opts.peak, opts.at + opts.attack);
+  g.gain.exponentialRampToValueAtTime(0.001, opts.at + opts.attack + opts.decay);
+  let head: AudioNode = osc;
+  if (opts.filter) {
+    const f = c.createBiquadFilter();
+    f.type = opts.filter.type;
+    f.frequency.value = opts.filter.freq;
+    f.Q.value = opts.filter.q;
+    head.connect(f);
+    head = f;
+  }
+  head.connect(g);
+  g.connect(master!);
+  osc.start(opts.at);
+  osc.stop(opts.at + opts.attack + opts.decay + 0.05);
+}
+
+// A finite noise burst through a filter with an envelope (car, thunder, tv).
+function noiseBurst(opts: {
+  kind: 'white' | 'brown'; at: number; duration: number;
+  filter: { type: BiquadFilterType; freq: number; q: number; freqEnd?: number };
+  attack: number; peak: number;
+}): { gain: GainNode; filter: BiquadFilterNode } {
+  const c = ctx!;
+  const src = c.createBufferSource();
+  src.buffer = noiseBuffer(opts.kind);
+  src.loop = true;
+  const f = c.createBiquadFilter();
+  f.type = opts.filter.type;
+  f.frequency.setValueAtTime(opts.filter.freq, opts.at);
+  f.Q.value = opts.filter.q;
+  if (opts.filter.freqEnd !== undefined) {
+    f.frequency.linearRampToValueAtTime(opts.filter.freqEnd, opts.at + opts.duration / 2);
+    f.frequency.linearRampToValueAtTime(opts.filter.freq, opts.at + opts.duration);
+  }
+  const g = c.createGain();
+  g.gain.setValueAtTime(0, opts.at);
+  g.gain.linearRampToValueAtTime(opts.peak, opts.at + opts.attack);
+  g.gain.exponentialRampToValueAtTime(0.001, opts.at + opts.duration);
+  src.connect(f);
+  f.connect(g);
+  g.connect(master!);
+  src.start(opts.at);
+  src.stop(opts.at + opts.duration + 0.05);
+  return { gain: g, filter: f };
+}
+
+export function playEvent(type: DisturbanceType): void {
+  if (!ctx || !master) return;
+  const t = ctx.currentTime;
+  switch (type) {
+    case 'bark': // two short filtered saw bursts
+      tone({ type: 'sawtooth', freq: 220, at: t, attack: 0.005, decay: 0.12, peak: 0.22,
+             filter: { type: 'bandpass', freq: 900, q: 5 } });
+      tone({ type: 'sawtooth', freq: 260, at: t + 0.18, attack: 0.005, decay: 0.12, peak: 0.22,
+             filter: { type: 'bandpass', freq: 950, q: 5 } });
+      break;
+    case 'car': // rising-falling filtered noise swell, 2.5 s
+      noiseBurst({ kind: 'white', at: t, duration: 2.5, attack: 1.0, peak: 0.15,
+                   filter: { type: 'bandpass', freq: 300, q: 1.2, freqEnd: 900 } });
+      break;
+    case 'thunder': // long decaying brown-noise rumble
+      noiseBurst({ kind: 'brown', at: t, duration: 3.5, attack: 0.02, peak: 0.35,
+                   filter: { type: 'lowpass', freq: 120, q: 0.7 } });
+      break;
+    case 'owl': // two soft sine hoots
+      tone({ type: 'sine', freq: 340, freqEnd: 320, at: t, attack: 0.03, decay: 0.22, peak: 0.12 });
+      tone({ type: 'sine', freq: 300, freqEnd: 280, at: t + 0.35, attack: 0.03, decay: 0.25, peak: 0.12 });
+      break;
+    case 'cans': { // metallic FM clank, two hits
+      for (const [dt, carrierHz] of [[0, 800], [0.15, 650]] as const) {
+        const carrier = ctx.createOscillator();
+        carrier.type = 'sine';
+        carrier.frequency.value = carrierHz;
+        const mod = ctx.createOscillator();
+        mod.type = 'sine';
+        mod.frequency.value = 560; // inharmonic ratio -> metallic
+        const modDepth = ctx.createGain();
+        modDepth.gain.value = 400; // FM index in Hz
+        mod.connect(modDepth);
+        modDepth.connect(carrier.frequency);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, t + dt);
+        g.gain.linearRampToValueAtTime(0.2, t + dt + 0.005);
+        g.gain.exponentialRampToValueAtTime(0.001, t + dt + 0.4);
+        carrier.connect(g);
+        g.connect(master);
+        mod.start(t + dt); carrier.start(t + dt);
+        mod.stop(t + dt + 0.45); carrier.stop(t + dt + 0.45);
+      }
+      break;
+    }
+    case 'gate': // slow squeaky sine sweep
+      tone({ type: 'sine', freq: 900, freqEnd: 1300, at: t, attack: 0.1, decay: 0.7, peak: 0.08 });
+      break;
+    case 'tv': { // brief filtered chatter: band-passed noise, amplitude-wobbled
+      const { gain } = noiseBurst({ kind: 'white', at: t, duration: 1.2, attack: 0.05, peak: 0.07,
+                                    filter: { type: 'bandpass', freq: 1200, q: 2 } });
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 6; // syllable-rate chatter
+      const lfoDepth = ctx.createGain();
+      lfoDepth.gain.value = 0.03;
+      lfo.connect(lfoDepth);
+      lfoDepth.connect(gain.gain);
+      lfo.start(t);
+      lfo.stop(t + 1.2);
+      break;
+    }
+  }
+}
+
+// Soft two-note chime when a house reaches asleep. E5 -> B5, very quiet.
+export function playSleepChime(): void {
+  if (!ctx || !master) return;
+  const t = ctx.currentTime;
+  tone({ type: 'sine', freq: 659.25, at: t, attack: 0.02, decay: 0.6, peak: 0.08 });
+  tone({ type: 'sine', freq: 987.77, at: t + 0.25, attack: 0.02, decay: 0.8, peak: 0.06 });
+}
+
+// Tiny resolving three-note motif on level complete: E5 -> D5 -> C5.
+export function playGoodnight(): void {
+  if (!ctx || !master) return;
+  const t = ctx.currentTime;
+  tone({ type: 'sine', freq: 659.25, at: t, attack: 0.03, decay: 0.5, peak: 0.09 });
+  tone({ type: 'sine', freq: 587.33, at: t + 0.4, attack: 0.03, decay: 0.5, peak: 0.09 });
+  tone({ type: 'sine', freq: 523.25, at: t + 0.8, attack: 0.03, decay: 1.5, peak: 0.1 });
 }
