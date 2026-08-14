@@ -5,6 +5,7 @@ export const SCENE_W = 1600
 export const SCENE_H = 900
 export const ROAD_Y = 700
 export const SHHH_RADIUS = 280
+export const LIGHT_RADIUS = 320
 
 // Tuning: quiet neutral house 0->100 in ~40s; satisfied prefs ~25s; shhh ~triples calm.
 export const BASE_RATE = 2.5
@@ -77,6 +78,22 @@ function maskingFloor(s: GameState): number {
   return s.weather === 'rain' ? MASK_RAIN : s.weather === 'wind' ? MASK_WIND : 0
 }
 
+function litLightNear(s: GameState, p: Vec2): boolean {
+  return s.lights.some((l) => l.on && dist(l.def.pos, p) <= LIGHT_RADIUS)
+}
+
+// Every penalty leaves the net rate positive or is directly player-fixable, so no state is unwinnable.
+function traitRate(s: GameState, h: HouseState): number {
+  let r = 0
+  const t = h.def.traits
+  if (t.includes('needsLight')) r += litLightNear(s, h.def.pos) ? 1.5 : -2.0
+  if (t.includes('lovesDark')) r += litLightNear(s, h.def.pos) ? -2.5 : 1.0
+  if (t.includes('rainSleeper') && s.weather === 'rain') r += 2.0
+  if (t.includes('freshAir')) r += h.windowOpen ? 1.5 : -1.0
+  if (t.includes('quietHouse') && h.windowOpen) r -= 1.5
+  return r
+}
+
 function effectiveNoiseAt(s: GameState, h: HouseState): number {
   let noise = 0
   for (const d of s.disturbances) {
@@ -87,7 +104,10 @@ function effectiveNoiseAt(s: GameState, h: HouseState): number {
     if (shhhCovers(s, d.pos)) v *= SHHH_SOURCE_FACTOR
     noise += v
   }
-  return Math.max(0, noise - maskingFloor(s))
+  let eff = Math.max(0, noise - maskingFloor(s))
+  if (h.def.traits.includes('quietHouse')) eff *= 1.5
+  if (h.def.traits.includes('stormWorrier') && s.disturbances.some((d) => d.type === 'thunder')) eff += 15
+  return eff
 }
 
 function wakeThreshold(h: HouseState): number {
@@ -119,7 +139,7 @@ export function tick(s: GameState, dt: number): void {
       }
       continue
     }
-    const rate = BASE_RATE + (shhhCovers(s, h.def.pos) ? CALM_BONUS : 0) - eff
+    const rate = BASE_RATE + traitRate(s, h) + (shhhCovers(s, h.def.pos) ? CALM_BONUS : 0) - eff
     h.sleep = clamp(h.sleep + rate * dt, 0, 100)
   }
   stepStatus(s, dt)

@@ -178,4 +178,71 @@ console.log('== task 3: noise pipeline and hysteresis ==')
   assert.ok(s.houses[0].sleep > before, 'shhh turns a bad bark into net progress')
 }
 
+console.log('== task 4: trait modifiers ==')
+function fillRate(s: GameState): number {
+  runFor(s, 5)
+  return s.houses[0].sleep / 5
+}
+{
+  const lit = () => lvl({
+    houses: [house({ traits: ['needsLight'] })],
+    streetlights: [{ id: 'sl', pos: { x: 900, y: 550 }, startsOn: true }], // 112px from house
+  })
+  approx(fillRate(createGameState(lit(), 7)), 3.8, 4.2, 'needsLight + lit light nearby: ~4/s')
+  const dark = createGameState(lit(), 7)
+  toggleLight(dark, 'sl')
+  approx(fillRate(dark), 0.3, 0.7, 'needsLight in the dark: slow but still positive (recoverable)')
+}
+{
+  const near = () => lvl({
+    houses: [house({ traits: ['lovesDark'] })],
+    streetlights: [{ id: 'sl', pos: { x: 900, y: 550 }, startsOn: true }],
+  })
+  approx(fillRate(createGameState(near(), 7)), -0.1, 0.1, 'lovesDark under a lit light: stalls at ~0/s')
+  const dark = createGameState(near(), 7)
+  toggleLight(dark, 'sl')
+  approx(fillRate(dark), 3.3, 3.7, 'lovesDark in darkness: ~3.5/s')
+}
+{
+  const s = createGameState(lvl({ houses: [house({ traits: ['rainSleeper'] })], startWeather: 'rain' }), 7)
+  approx(fillRate(s), 4.3, 4.7, 'rainSleeper in rain: ~4.5/s')
+}
+{
+  approx(fillRate(createGameState(lvl({ houses: [house({ traits: ['freshAir'], windowStartsOpen: true })] }), 7)),
+    3.8, 4.2, 'freshAir with open window: ~4/s')
+  approx(fillRate(createGameState(lvl({ houses: [house({ traits: ['freshAir'] })] }), 7)),
+    1.3, 1.7, 'freshAir with closed window: ~1.5/s')
+}
+{
+  approx(fillRate(createGameState(lvl({ houses: [house({ traits: ['quietHouse'], windowStartsOpen: true })] }), 7)),
+    0.8, 1.2, 'quietHouse with open window: ~1/s')
+  // quietHouse noise sensitivity: eff x1.5 makes a masked-for-others noise still sting
+  const s = createGameState(lvl({ houses: [house({ traits: ['quietHouse'] })] }), 7)
+  runFor(s, 10)
+  const plain = createGameState(lvl({ houses: [house({})] }), 7)
+  runFor(plain, 10)
+  spawnDisturbance(s, 'bark', { x: 950, y: 500 })
+  spawnDisturbance(plain, 'bark', { x: 950, y: 500 })
+  runFor(s, 1.2)
+  runFor(plain, 1.2)
+  assert.ok(s.houses[0].sleep < plain.houses[0].sleep, 'quietHouse suffers more from the same bark')
+}
+{
+  // stormWorrier: distant thunder wakes them; deepSleeper behind a closed window sleeps through
+  const mkAsleep = (traits: TraitId[], open: boolean) => {
+    const s = createGameState(lvl({ houses: [house({ traits })], startWeather: 'rain', thunder: true }), 7)
+    s.houses[0].sleep = 100
+    s.houses[0].windowOpen = open
+    return s
+  }
+  const worrier = mkAsleep(['stormWorrier'], true)
+  spawnDisturbance(worrier, 'thunder', { x: 800, y: 100 })
+  tick(worrier, 0.1)
+  assert.equal(worrier.houses[0].sleep, 60, 'stormWorrier wakes on thunder')
+  const deep = mkAsleep(['deepSleeper'], false)
+  spawnDisturbance(deep, 'thunder', { x: 800, y: 100 })
+  tick(deep, 0.1)
+  assert.equal(deep.houses[0].sleep, 100, 'deepSleeper behind closed window sleeps through thunder')
+}
+
 console.log('check:sim OK')
