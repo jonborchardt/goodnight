@@ -6,6 +6,7 @@ export const SCENE_H = 900
 export const ROAD_Y = 700
 export const SHHH_RADIUS = 280
 export const LIGHT_RADIUS = 320
+export const CAR_SPEED = 240
 
 // Tuning: quiet neutral house 0->100 in ~40s; satisfied prefs ~25s; shhh ~triples calm.
 export const BASE_RATE = 2.5
@@ -29,6 +30,28 @@ export const DISTURBANCE_SPECS: Record<DisturbanceType, { loudness: number; dura
   gate:    { loudness: 14, duration: 1.5, severe: false },
   thunder: { loudness: 40, duration: 2.0, severe: true },
   tv:      { loudness: 10, duration: 4.0, severe: false },
+}
+
+const CAR_MARGIN = 200 // spawn distance past the scene edge => ~0.8s audible/visible approach
+
+export function spawnCar(s: GameState): void {
+  if (s.car !== null) return // one car at a time
+  const dir: 1 | -1 = s.rng() < 0.5 ? 1 : -1
+  const x = dir === 1 ? -CAR_MARGIN : SCENE_W + CAR_MARGIN
+  s.car = { x, dir }
+  const d = spawnDisturbance(s, 'car', { x, y: ROAD_Y })
+  d.duration = (SCENE_W + 2 * CAR_MARGIN) / CAR_SPEED // full crossing ~8.3s
+}
+
+function stepCar(s: GameState, dt: number): void {
+  if (s.car === null) return
+  s.car.x += s.car.dir * CAR_SPEED * dt
+  const d = s.disturbances.find((d) => d.type === 'car')
+  if (d !== undefined) d.pos.x = s.car.x
+  if (s.car.x < -CAR_MARGIN || s.car.x > SCENE_W + CAR_MARGIN) {
+    s.car = null
+    s.disturbances = s.disturbances.filter((d) => d.type !== 'car')
+  }
 }
 
 export function createGameState(level: LevelDef, seed: number = Date.now() >>> 0): GameState {
@@ -128,6 +151,7 @@ function stepDisturbances(s: GameState, dt: number): void {
 export function tick(s: GameState, dt: number): void {
   s.time += dt
   if (s.status === 'complete') return
+  stepCar(s, dt)
   stepDisturbances(s, dt)
   for (const h of s.houses) {
     const eff = effectiveNoiseAt(s, h)

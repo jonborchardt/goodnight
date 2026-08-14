@@ -3,7 +3,7 @@ import type { GameState, HouseDef, LevelDef, TraitId, Vec2, DisturbanceType } fr
 import { stageOf } from '../src/game/types'
 import { mulberry32 } from '../src/game/rng'
 import {
-  createGameState, tick, setShhh, setWeather, toggleLight, toggleWindow, spawnDisturbance,
+  createGameState, tick, setShhh, setWeather, toggleLight, toggleWindow, spawnDisturbance, spawnCar,
   SCENE_W, ROAD_Y,
 } from '../src/game/sim'
 
@@ -243,6 +243,29 @@ function fillRate(s: GameState): number {
   spawnDisturbance(deep, 'thunder', { x: 800, y: 100 })
   tick(deep, 0.1)
   assert.equal(deep.houses[0].sleep, 100, 'deepSleeper behind closed window sleeps through thunder')
+}
+
+console.log('== task 5: the car ==')
+{
+  const near = house({ id: 'near', pos: { x: 800, y: 620 }, windowStartsOpen: true }) // 80px above road
+  const far = house({ id: 'far', pos: { x: 800, y: 200 } })
+  const s = createGameState(lvl({ houses: [near, far] }), 7)
+  runFor(s, 10)
+  const nearBefore = s.houses[0].sleep
+  const farBefore = s.houses[1].sleep
+  spawnCar(s)
+  assert.ok(s.car !== null, 'car state set')
+  assert.ok(s.car!.x < 0 || s.car!.x > SCENE_W, 'car spawns off-screen (visible approach before it arrives)')
+  const d = s.disturbances.find((d) => d.type === 'car')
+  assert.ok(d !== undefined && d.pos.y === ROAD_Y, 'car noise source travels on the road')
+  runFor(s, 4.6) // 2000px at 240px/s: mid-town around t+4.2s
+  assert.ok(s.houses[0].sleep < nearBefore, 'roadside house loses sleep as the car passes')
+  const mid = s.disturbances.find((d) => d.type === 'car')
+  assert.ok(mid !== undefined && Math.abs(mid.pos.x - s.car!.x) < 1, 'noise source follows the car')
+  runFor(s, 5)
+  assert.equal(s.car, null, 'car despawns after crossing')
+  assert.ok(!s.disturbances.some((d) => d.type === 'car'), 'car noise removed with it')
+  assert.ok(s.houses[1].sleep > farBefore + 5, 'distant house keeps making progress through the whole crossing')
 }
 
 console.log('check:sim OK')
