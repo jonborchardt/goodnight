@@ -141,8 +141,9 @@ export default function House({ hs, now }: { hs: HouseState; now: number }) {
   const justWoke = hs.wokeAt !== null && now - hs.wokeAt < 1.6
 
   // Zen reactive body language: stalled >= 2s -> restless panes; rate recovering
-  // from a stall (a toggle helped) -> one-shot content pulse.
+  // from a stall (a toggle helped) -> one-shot content pulse; worsening -> stir.
   const stalledSince = useRef<number | null>(null)
+  if (stalledSince.current !== null && stalledSince.current > now) stalledSince.current = now // restart rewinds the clock
   if (hs.sleep < 100 && hs.rate < 0.1) {
     if (stalledSince.current === null) stalledSince.current = now
   } else {
@@ -150,15 +151,21 @@ export default function House({ hs, now }: { hs: HouseState; now: number }) {
   }
   const restless = stalledSince.current !== null && now - stalledSince.current >= 2
   const prevRate = useRef(hs.rate)
+  const prevNow = useRef(now)
   const [pulseKey, setPulseKey] = useState(0)
   const [stirKey, setStirKey] = useState(0)
   useEffect(() => {
-    if (hs.sleep < 100) {
+    // Suppress transition cues when the clock rewinds (restart) and until the
+    // first ticked frame (mount renders with rate 0 before the loop starts).
+    const rewound = now < prevNow.current
+    const preTick = prevNow.current === 0
+    if (!rewound && !preTick && hs.sleep < 100) {
       if (prevRate.current < 0.1 && hs.rate > 0.5) setPulseKey((k) => k + 1)
       if (prevRate.current > 0.5 && hs.rate < 0.1) setStirKey((k) => k + 1)
     }
     prevRate.current = hs.rate
-  }, [hs.rate, hs.sleep])
+    prevNow.current = now
+  }, [hs.rate, hs.sleep, now])
 
   return (
     <g transform={`translate(${def.pos.x - art.w / 2} ${def.pos.y - art.h})`}>

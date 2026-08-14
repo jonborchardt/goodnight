@@ -82,9 +82,9 @@ export interface GameState {
   owl: { perch: number; pos: Vec2; movedAt: number } | null
   shhh: { pos: Vec2 } | null
   seed: number
+  nextAt: number[]        // per-schedule-entry next fire time (readable: the view derives telegraphs from it)
   // --- internal sim fields (additive; the view only reads the fields above) ---
   rng: () => number
-  nextAt: number[]        // per-schedule-entry next fire time
   severeUntil: number     // no severe disturbance may start before this time
   lastThunderAt: number
   nextId: number
