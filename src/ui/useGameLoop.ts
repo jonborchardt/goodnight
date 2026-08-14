@@ -8,6 +8,7 @@ import {
   toggleLight,
   toggleWindow,
 } from '../game/sim'
+import { initAudio, playEvent, playGoodnight, playSleepChime, updateAmbience } from '../audio/engine'
 
 // Fixed sim step: 100 ms, in seconds (matches the sim's ~10 Hz design).
 const STEP = 0.1
@@ -34,10 +35,22 @@ export function useGameLoop(level: LevelDef): { state: GameState; controls: Game
   const levelRef = useRef<LevelDef | null>(null)
   const speedRef = useRef(1)
 
+  // Audio-observer state: tracks what's already been played so ticks only
+  // trigger one-shots on real transitions. Reset alongside state replacement.
+  const seenDisturbances = useRef<Set<number>>(new Set())
+  const prevAsleep = useRef<boolean[]>([])
+  const prevStatus = useRef<GameState['status']>('playing')
+  function resetAudioObserver(): void {
+    seenDisturbances.current.clear()
+    prevAsleep.current = []
+    prevStatus.current = 'playing'
+  }
+
   // Lazy init / re-init when the level object changes (new night).
   if (levelRef.current !== level) {
     levelRef.current = level
     stateRef.current = createGameState(level)
+    resetAudioObserver()
   }
 
   const controls = useMemo<GameControls>(
@@ -57,11 +70,19 @@ export function useGameLoop(level: LevelDef): { state: GameState; controls: Game
       },
       restart: () => {
         stateRef.current = createGameState(level)
+        resetAudioObserver()
         bump()
       },
     }),
     [level],
   )
+
+  // Gesture-gated audio init: browsers block AudioContext until a real
+  // user gesture. Registered once; initAudio itself is idempotent.
+  useEffect(() => {
+    window.addEventListener('pointerdown', initAudio, { once: true })
+    return () => window.removeEventListener('pointerdown', initAudio)
+  }, [])
 
   useEffect(() => {
     let last = performance.now()
@@ -76,11 +97,40 @@ export function useGameLoop(level: LevelDef): { state: GameState; controls: Game
         acc -= STEP
         ticked = true
       }
-      if (ticked) bump()
+      if (ticked) {
+        observeAudio(stateRef.current!)
+        bump()
+      }
       raf = requestAnimationFrame(frame)
     })
     return () => cancelAnimationFrame(raf)
   }, [level])
+
+  // Diff this tick's state against the last-observed snapshot and trigger
+  // one-shots / ambience updates. Called only when the sim actually ticked.
+  function observeAudio(state: GameState): void {
+    for (const d of state.disturbances) {
+      if (!seenDisturbances.current.has(d.id)) {
+        seenDisturbances.current.add(d.id)
+        playEvent(d.type)
+      }
+    }
+    if (state.disturbances.length === 0 && seenDisturbances.current.size > 500) {
+      seenDisturbances.current.clear() // bound memory across a long session
+    }
+    state.houses.forEach((h, i) => {
+      const asleep = h.sleep >= 100
+      if (asleep && prevAsleep.current[i] === false) playSleepChime()
+      prevAsleep.current[i] = asleep
+    })
+    if (state.status === 'complete' && prevStatus.current !== 'complete') playGoodnight()
+    prevStatus.current = state.status
+    updateAmbience({
+      weather: state.weather,
+      asleepFraction: state.houses.filter((h) => h.sleep >= 100).length / Math.max(1, state.houses.length),
+      shhhActive: state.shhh !== null,
+    })
+  }
 
   // Dev hooks so plans 3-5 can playtest via Playwright:
   // window.__game.state / .controls / .setSpeed(20)

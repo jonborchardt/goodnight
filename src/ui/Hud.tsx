@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
 import Fade from '@mui/material/Fade'
@@ -5,6 +6,7 @@ import IconButton from '@mui/material/IconButton'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
+import { isMuted, setMuted } from '../audio/engine'
 import type { GameState, WeatherId } from '../game/types'
 import type { GameControls } from './useGameLoop'
 
@@ -15,6 +17,7 @@ const INK = '#dfe6f5'
 
 export default function Hud({ state, controls }: { state: GameState; controls: GameControls }) {
   const level = state.level
+  const [muted, setMutedState] = useState(isMuted)
   return (
     <>
       <Box
@@ -52,9 +55,15 @@ export default function Hud({ state, controls }: { state: GameState; controls: G
         <IconButton aria-label="Restart night" onClick={controls.restart} sx={{ color: INK, bgcolor: PANEL }}>
           ⟲
         </IconButton>
-        {/* Mute placeholder: Plan 5 (audio) makes this functional */}
-        <IconButton aria-label="Sound (coming in a later plan)" disabled sx={{ color: INK, bgcolor: 'rgba(20,26,44,0.4)' }}>
-          ♪
+        <IconButton
+          aria-label={muted ? 'unmute' : 'mute'}
+          onClick={() => {
+            setMuted(!muted)
+            setMutedState(!muted)
+          }}
+          sx={{ color: INK, bgcolor: PANEL }}
+        >
+          {muted ? '🔇' : '🔊'}
         </IconButton>
       </Box>
       <Fade in={state.time < 8} timeout={{ enter: 400, exit: 1500 }}>
