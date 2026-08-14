@@ -71,6 +71,14 @@
 }
 .content-pulse { animation: content-pulse 1.4s ease-out forwards; }
 
+@keyframes stir-flicker {
+  0% { opacity: 0.45; }
+  25% { opacity: 0; }
+  50% { opacity: 0.3; }
+  100% { opacity: 0; }
+}
+.stir-flash { animation: stir-flicker 0.9s ease-out forwards; }
+
 /* Owl */
 .owl-body { transition: transform 1.6s cubic-bezier(0.4, 0, 0.2, 1); }
 @keyframes owl-ripple-anim {

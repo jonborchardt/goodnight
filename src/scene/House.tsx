@@ -151,10 +151,14 @@ export default function House({ hs, now }: { hs: HouseState; now: number }) {
   const restless = stalledSince.current !== null && now - stalledSince.current >= 2
   const prevRate = useRef(hs.rate)
   const [pulseKey, setPulseKey] = useState(0)
+  const [stirKey, setStirKey] = useState(0)
   useEffect(() => {
-    if (prevRate.current < 0.1 && hs.rate > 0.5 && hs.sleep < 100) setPulseKey((k) => k + 1)
+    if (hs.sleep < 100) {
+      if (prevRate.current < 0.1 && hs.rate > 0.5) setPulseKey((k) => k + 1)
+      if (prevRate.current > 0.5 && hs.rate < 0.1) setStirKey((k) => k + 1)
+    }
     prevRate.current = hs.rate
-  })
+  }, [hs.rate, hs.sleep])
 
   return (
     <g transform={`translate(${def.pos.x - art.w / 2} ${def.pos.y - art.h})`}>
@@ -185,6 +189,19 @@ export default function House({ hs, now }: { hs: HouseState; now: number }) {
           height={art.h + 56}
           rx={8}
           fill="#bcd0ff"
+          pointerEvents="none"
+        />
+      )}
+      {stirKey > 0 && (
+        <rect
+          key={`stir-${stirKey}`}
+          className="stir-flash"
+          x={-6}
+          y={-52}
+          width={art.w + 12}
+          height={art.h + 56}
+          rx={8}
+          fill="#1a1426"
           pointerEvents="none"
         />
       )}
