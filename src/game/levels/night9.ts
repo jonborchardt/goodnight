@@ -16,7 +16,7 @@ export const NIGHT9: LevelDef = {
       { x: 250, y: 560 },   // 1: over brick-corner (quietHouse) — bad
       { x: 1100, y: 640 },  // 2: near the road — blocks clean car shhh-ing
       { x: 60, y: 300 },    // 3: far west tree — safe
-      { x: 1560, y: 260 },  // 4: far east tree — safe
+      { x: 1590, y: 200 },  // 4: far east treetop — safe (≈361px from farmhouse: no stall even window-open)
     ],
     start: 0,
   },
