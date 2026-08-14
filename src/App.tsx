@@ -1,17 +1,10 @@
-import Box from '@mui/material/Box'
-import Typography from '@mui/material/Typography'
+import { LEVELS } from './game/levels'
+import TownScene from './scene/TownScene'
+import { useGameLoop } from './ui/useGameLoop'
 
+// Temporary shell so every scene task is visually verifiable.
+// Task 6 replaces this with the title/night/ending state machine.
 export default function App() {
-  return (
-    <Box
-      sx={{
-        minHeight: '100dvh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <Typography variant="h4">goodnight</Typography>
-    </Box>
-  )
+  const { state, controls } = useGameLoop(LEVELS[0])
+  return <TownScene state={state} controls={controls} />
 }
