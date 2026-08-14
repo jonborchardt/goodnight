@@ -23,7 +23,7 @@ export const NIGHT6: LevelDef = {
   ],
   streetlights: [
     { id: 'sl-front', pos: { x: 820, y: 655 }, startsOn: true }, // keep ON: red-tiny needsLight (75px away)
-    { id: 'sl-hill', pos: { x: 560, y: 520 }, startsOn: true },  // turn OFF: yellow-cottage lovesDark (72px away)
+    { id: 'sl-hill', pos: { x: 440, y: 510 }, startsOn: true },  // turn OFF: yellow-cottage lovesDark (94px away; 335px from red-tiny — no cross-coverage)
   ],
   schedule: [
     { type: 'gate', pos: { x: 700, y: 500 }, minGap: 20, maxGap: 20, firstAt: 9 },
