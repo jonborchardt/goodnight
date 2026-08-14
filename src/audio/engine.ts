@@ -13,7 +13,15 @@ const MUTE_KEY = 'goodnight.muted';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
-let muted = localStorage.getItem(MUTE_KEY) === 'true';
+
+function readMuted(): boolean {
+  try {
+    return localStorage.getItem(MUTE_KEY) === 'true';
+  } catch {
+    return false; // storage unavailable — default unmuted, nothing persists
+  }
+}
+let muted = readMuted();
 
 // ambience graph (built in initAudio)
 let ambienceFilter: BiquadFilterNode | null = null; // shhh muffling
@@ -52,7 +60,11 @@ export function isMuted(): boolean {
 
 export function setMuted(m: boolean): void {
   muted = m;
-  localStorage.setItem(MUTE_KEY, String(m));
+  try {
+    localStorage.setItem(MUTE_KEY, String(m));
+  } catch {
+    /* storage unavailable - mute just won't persist */
+  }
   if (ctx && master) {
     master.gain.setTargetAtTime(m ? 0 : MASTER_LEVEL, ctx.currentTime, 0.05);
   }
