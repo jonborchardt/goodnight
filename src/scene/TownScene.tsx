@@ -44,7 +44,11 @@ export default function TownScene({ state, controls }: { state: GameState; contr
   const onPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
     if (state.status === 'complete') return // Shhh disabled once the town settles
     if (holdRef.current) return // one pointer at a time
-    e.currentTarget.setPointerCapture(e.pointerId)
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    } catch {
+      // No active pointer to capture (e.g. synthetic/test events) — hold tracking still works.
+    }
     const toggleEl = (e.target as Element).closest('[data-toggle]')
     const h: PointerHold = {
       pointerId: e.pointerId,

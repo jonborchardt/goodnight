@@ -52,7 +52,11 @@ export default function Hud({ state, controls }: { state: GameState; controls: G
           </ToggleButtonGroup>
         )}
         <Box sx={{ flex: 1 }} />
-        <IconButton aria-label="Restart night" onClick={controls.restart} sx={{ color: INK, bgcolor: PANEL }}>
+        <IconButton
+          aria-label="Restart night"
+          onClick={controls.restart}
+          sx={{ color: INK, bgcolor: PANEL, minWidth: 40, minHeight: 40 }}
+        >
           ⟲
         </IconButton>
         <IconButton
@@ -61,7 +65,7 @@ export default function Hud({ state, controls }: { state: GameState; controls: G
             setMuted(!muted)
             setMutedState(!muted)
           }}
-          sx={{ color: INK, bgcolor: PANEL }}
+          sx={{ color: INK, bgcolor: PANEL, minWidth: 40, minHeight: 40 }}
         >
           {muted ? '🔇' : '🔊'}
         </IconButton>
